@@ -1,4 +1,4 @@
-from telegram import Update
+from telegram import ReplyKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 from services.image_search import search_images
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
@@ -10,11 +10,19 @@ import logging
 
 PHOTOS_PER_PAGE = 3
 
+ART_BOT_MENU = ReplyKeyboardMarkup(
+    [
+        ["🎨 Анализ картины", "🖼 Поиск изображений"],
+        ["ℹ️ Помощь", "⭐ Избранное"]
+    ],
+    resize_keyboard=True,
+    is_persistent=True
+)
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🎨 Привет! Я могу:\n"
-        "1. Анализировать описания картин\n"
-        "2. Искать изображения — команда /image <запрос>"
+        "🎨 Привет! Я бот-искусствовед. Выберите действие:",
+        reply_markup=ART_BOT_MENU
     )
 
 async def image_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -36,7 +44,6 @@ async def image_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ Ошибка при поиске изображений.")
         return
     
-    # Сохраняем ссылки и позицию в context.user_data
     context.user_data['images'] = links
     context.user_data['page'] = 0
     await send_image_page(update, context)

@@ -1,7 +1,7 @@
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from config import TELEGRAM_TOKEN
 from handlers.commands import button_handler, start, image_search
-from handlers.messages import handle_message
+from handlers.messages import handle_menu, handle_message
 from utils.logger import setup_logger
 from telegram.ext import CallbackQueryHandler
 
@@ -12,6 +12,9 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("image", image_search))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu))
+
     app.add_handler(CallbackQueryHandler(button_handler))
 
     app.run_polling()

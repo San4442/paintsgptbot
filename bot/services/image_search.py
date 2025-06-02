@@ -3,13 +3,13 @@ import logging
 import xml.etree.ElementTree as ET
 from config import YANDEX_FOLDER_ID, YANDEX_GPT_API_KEY
 
-async def search_images(query: str) -> list[str]:
+async def search_images(query: str, n: int = 5) -> list[str]:
     base_url = "https://yandex.ru/images-xml"
     params = {
         "folderid": YANDEX_FOLDER_ID,
         "apikey": YANDEX_GPT_API_KEY,
-        "text": query,
-        "groupby": "attr=ii.groups-on-page=5",
+        "text": f"{query} картина живопись -фото -коллаж -рисунок -скульптура",
+        "groupby": f"attr=ii.groups-on-page={n}",
         "p": 0,
         "isize": "large",
         "itype": "jpg"
