@@ -73,24 +73,22 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def analyze_art(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.message.text
 
-    await update.message.reply_text(
-        "🔍 Анализирую описание картины...",
-        reply_markup=ReplyKeyboardRemove()  # Убираем временную клавиатуру
-    )
-
-    await asyncio.sleep(0.5)
-
-    await update.message.reply_text(
-        "🔍 Ищу информацию о картине...",
-        reply_markup=ART_BOT_MENU
+    processing_msg = await update.message.reply_text(
+        "🔍 Анализирую описание и ищу картину...",
+        reply_markup=ReplyKeyboardRemove()
     )
 
     result = await analyze_with_gpt(query)
     if not result or not result.get("is_painting"):
         await update.message.reply_text(
             "❌ Это не похоже на описание картины.",
-            reply_markup=ART_BOT_MENU  # Возвращаем основное меню
+            reply_markup=ART_BOT_MENU
         )
+
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
         return
 
     details = result["details"]
@@ -104,10 +102,9 @@ async def analyze_art(update: Update, context: ContextTypes.DEFAULT_TYPE):
     search_query = " ".join(filter(None, search_terms))
 
     try:
-        image_urls = await search_images(search_query, n=1)
-        
-        loop = asyncio.get_running_loop()
-        links = await loop.run_in_executor(None, get_links, search_query, 5)
+        image_task = search_images(search_query, n=1)
+        links_task = asyncio.get_event_loop().run_in_executor(None, get_links, search_query, 5)
+        image_urls, links = await asyncio.gather(image_task, links_task)
 
         formatted_links = "\n".join(
             f"{i+1}. <a href='{item['url']}'>{item['title']}</a>" 
@@ -120,13 +117,30 @@ async def analyze_art(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🔗 Ссылки:\n{formatted_links}"
         )
 
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+
         if image_urls:
-            await update.message.reply_photo(
-                image_urls[0],
-                caption=caption,
-                parse_mode=ParseMode.HTML,
-                reply_markup=ART_BOT_MENU
-            )
+            try:
+                if image_urls[0].startswith('http'):
+                    await update.message.reply_photo(
+                        image_urls[0],
+                        caption=caption,
+                        parse_mode=ParseMode.HTML,
+                        reply_markup=ART_BOT_MENU
+                    )
+                else:
+                    raise ValueError("Invalid image URL")
+            except Exception as e:
+                logging.error(f"Ошибка отправки фото: {e}")
+                await update.message.reply_text(
+                    caption + "\n\n⚠️ Не удалось загрузить изображение",
+                    parse_mode=ParseMode.HTML,
+                    disable_web_page_preview=True,
+                    reply_markup=ART_BOT_MENU
+                )
         else:
             await update.message.reply_text(
                 caption,
@@ -134,9 +148,15 @@ async def analyze_art(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 disable_web_page_preview=True,
                 reply_markup=ART_BOT_MENU
             )
+            
     except Exception as e:
-        logging.error(f"Search error: {e}")
+        logging.error(f"Search error: {e}", exc_info=True)
+        try:
+            await processing_msg.delete()
+        except Exception:
+            pass
+            
         await update.message.reply_text(
             "⚠️ Произошла ошибка при анализе картины.",
-            reply_markup=ART_BOT_MENU  # Возвращаем меню при ошибке
+            reply_markup=ART_BOT_MENU
         )
